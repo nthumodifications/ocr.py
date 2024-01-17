@@ -1,1 +1,5 @@
 fastapi==0.109.0
+keras==2.12.0
+numpy==1.23.0
+opencv_python==4.6.0.66
+Requests==2.31.0
