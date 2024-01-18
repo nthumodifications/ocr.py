@@ -1,14 +1,12 @@
 from time import time
 from fastapi import FastAPI
-from keras.models import load_model
-import keras.utils as image
 import tflite_runtime.interpreter as tflite
 import numpy as np
 import requests
 import cv2
 
 app = FastAPI()
-model = load_model('model.h5')
+model = tflite.Interpreter(model_path='model.tflite', num_threads=2)
 
 def load(url: str):
   response = requests.get(url)
@@ -47,12 +45,18 @@ async def uwu(url: str):
     img = pad(img) 
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (30, 30))
-    img = image.img_to_array(img)
+    img = img.astype(np.float32)
     img = img / 255.0
     img = np.expand_dims(img, axis=0)
-    predictions = model.predict(img)
-    prediction = np.argmax(predictions)
-    answers.append(prediction)
+
+    input_details = model.get_input_details()
+    output_details = model.get_output_details()
+    model.allocate_tensors()
+    model.set_tensor(input_details[0]['index'], img)
+    model.invoke()
+    prediction = model.get_tensor(output_details[0]['index'])
+    answer = np.argmax(prediction[0])
+    answers.append(answer)
   
   answer = int(''.join(map(str, answers)))
   return answer
