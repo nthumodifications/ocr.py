@@ -2,6 +2,7 @@ from time import time
 from fastapi import FastAPI
 from keras.models import load_model
 import keras.utils as image
+import tflite_runtime.interpreter as tflite
 import numpy as np
 import requests
 import cv2
