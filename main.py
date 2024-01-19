@@ -1,18 +1,20 @@
 from time import time
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 import tflite_runtime.interpreter as tflite
+import urllib.request
 import numpy as np
 import requests
 import cv2
 
 app = FastAPI()
-model = tflite.Interpreter(model_path='model.tflite', num_threads=2)
+model = tflite.Interpreter(model_path='model.tflite', num_threads=4)
 
-def load(url: str):
-  response = requests.get(url)
-  content = response.content
-  with open('test.png', 'wb') as f:
-    f.write(content)
+def load(url):
+  response = urllib.request.urlopen(url)
+  array = np.array(bytearray(response.read()), dtype=np.uint8)
+  img = cv2.imdecode(array, -1)
+  return img
 
 def pad(image, size = (30, 30)):
   h, w = image.shape[:2]
@@ -22,8 +24,8 @@ def pad(image, size = (30, 30)):
   padding = ((top, bottom), (left, right)) + ((0, 0),) * (image.ndim - 2)
   return np.pad(image, padding, 'constant')
 
-def process(file: str):
-  image = cv2.imread(file, 0)
+def process(image):
+  image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
   _, image = cv2.threshold(image, 150, 255, cv2.THRESH_BINARY_INV)
   contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
   contours = sorted(contours, key=lambda c: cv2.boundingRect(c)[0])
@@ -35,10 +37,10 @@ def process(file: str):
   return subimages
 
 
-@app.get('/')
-async def uwu(url: str):
-  load(url)
-  images = process('test.png')
+@app.get('/', response_class=PlainTextResponse)
+async def uwu(url):
+  image = load(url)
+  images = process(image)
 
   answers = []
   for img in images:
@@ -58,5 +60,5 @@ async def uwu(url: str):
     answer = np.argmax(prediction[0])
     answers.append(answer)
   
-  answer = int(''.join(map(str, answers)))
+  answer = ''.join(map(str, answers))
   return answer
